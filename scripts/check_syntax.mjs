@@ -91,7 +91,19 @@ function checkFile(file, listOnly) {
     console.error(`x 文件不存在: ${file}`);
     return 1;
   }
-  const html = fs.readFileSync(file, 'utf8');
+  const raw = fs.readFileSync(file);
+  // Windows 上带 BOM 的文件很常见（UTF-8 BOM / UTF-16）。不处理会让正则全部失配，
+  // 表现为「文件里明明有 <script>，却报告 0 个内联 script」。
+  let html = raw.toString('utf8');
+  if (html.charCodeAt(0) === 0xfeff) html = html.slice(1);
+  if (html.charCodeAt(0) === 0xff && html.charCodeAt(1) === 0xfe) {
+    console.error(`x ${file}: 是 UTF-16LE 编码，请先转成 UTF-8`);
+    return 1;
+  }
+  if (html.charCodeAt(0) === 0xfe && html.charCodeAt(1) === 0xff) {
+    console.error(`x ${file}: 是 UTF-16BE 编码，请先转成 UTF-8`);
+    return 1;
+  }
   const all = extractAllInlineScripts(html);
   const mods = all.filter((s) => s.isModule);
 
